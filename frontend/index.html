@@ -1,0 +1,43 @@
+
+<!DOCTYPE html>
+<html>
+<body>
+<h2>AI Interviewer</h2>
+<input type="file" id="file"><br><br>
+<button onclick="start()">Start Interview</button>
+<p id="q"></p>
+<textarea id="live" rows="4" cols="60"></textarea><br>
+<button onclick="send()">Send Answer</button>
+<button onclick="endInterview()">End Interview</button>
+<pre id="out"></pre>
+
+<script>
+let ws, rec;
+
+async function start(){
+  ws=new WebSocket("ws://localhost:8000/ws/interview");
+  ws.onmessage=e=>{
+    const m=JSON.parse(e.data);
+    if(m.type==="question") q.innerText=m.data;
+    if(m.type==="report") out.innerText=JSON.stringify(m.data,null,2);
+  };
+  rec=new (window.SpeechRecognition||window.webkitSpeechRecognition)();
+  rec.continuous=true;
+  rec.onresult=e=>{
+    const t=e.results[e.results.length-1][0].transcript;
+    live.value+=" "+t;
+    ws.send(JSON.stringify({type:"context",data:t}));
+  };
+  rec.start();
+  const f=file.files[0];
+  if(f){
+    const text=await f.text();
+    ws.send(JSON.stringify({type:"context",data:text}));
+  }
+}
+
+function send(){ws.send(JSON.stringify({type:"answer",data:live.value}));live.value="";}
+function endInterview(){ws.send(JSON.stringify({type:"end"}));}
+</script>
+</body>
+</html>
